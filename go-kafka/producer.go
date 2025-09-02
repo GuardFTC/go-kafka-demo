@@ -72,7 +72,7 @@ func getWriter(brokers []string, topic string) *kafka.Writer {
 		//    一致性哈希，将分区映射到哈希环，分区增删时 Key 的迁移量更小，路由更稳定。
 		//    适合可能会调整分区数量、但又希望尽量保持 Key->分区稳定映射的场景；同样需要稳定 Key。
 		//    示例：Balancer: &kafka.ConsistentHash{}
-		//Balancer: &kafka.Hash{},
+		Balancer: &kafka.Hash{},
 	}
 }
 
