@@ -11,8 +11,60 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// SendSingleMessage 发送消息
-func getWriter(brokers []string, topic string) *kafka.Writer {
+// Producer 生产者
+type Producer struct {
+	w *kafka.Writer
+	c context.Context
+}
+
+// NewProducer 创建生产者
+func NewProducer(brokers []string, c context.Context) *Producer {
+	return &Producer{
+		w: getWriter(brokers),
+		c: c,
+	}
+}
+
+// Close 关闭生产者
+func (p *Producer) Close() {
+	err := p.w.Close()
+	if err != nil {
+		log.Fatalf("failed to close producer: %s", err)
+	}
+}
+
+// SendMassage 发送消息
+func (p *Producer) SendMassage(topic string, message string) error {
+	return sendMessage(topic, -1, "", message, p.w, p.c)
+}
+
+// SendMessageWithKey 发送消息（指定key）
+func (p *Producer) SendMessageWithKey(topic string, key string, message string) error {
+	return sendMessage(topic, -1, key, message, p.w, p.c)
+}
+
+// SendMessageWithPartition 发送消息（指定分区）
+func (p *Producer) SendMessageWithPartition(topic string, partition int, message string) error {
+	return sendMessage(topic, partition, "", message, p.w, p.c)
+}
+
+// SendMessages 批量发送消息
+func (p *Producer) SendMessages(topic string, messages []string) error {
+	return sendMessageBatch(topic, -1, "", messages, p.w, p.c)
+}
+
+// SendMessagesWithKey 批量发送消息（指定key）
+func (p *Producer) SendMessagesWithKey(topic string, key string, messages []string) error {
+	return sendMessageBatch(topic, -1, key, messages, p.w, p.c)
+}
+
+// SendMessagesWithPartition 批量发送消息（指定分区）
+func (p *Producer) SendMessagesWithPartition(topic string, partition int, messages []string) error {
+	return sendMessageBatch(topic, partition, "", messages, p.w, p.c)
+}
+
+// getWriter 获取Kafka Writer
+func getWriter(brokers []string) *kafka.Writer {
 	return &kafka.Writer{
 
 		//常规配置
@@ -45,7 +97,7 @@ func getWriter(brokers []string, topic string) *kafka.Writer {
 
 		//日志配置
 		Logger:      log.New(os.Stdout, "kafka-producer: ", log.LstdFlags),
-		ErrorLogger: log.New(os.Stderr, "kafka-error: ", log.LstdFlags),
+		ErrorLogger: log.New(os.Stderr, "kafka-producer-error: ", log.LstdFlags),
 
 		//消息分发路由策略，包括以下5种
 		// 1. LeastBytes:
@@ -95,7 +147,7 @@ func sendMessage(topic string, partition int, key string, message string, w *kaf
 	}
 }
 
-// SendMessageBatch 批量发送消息
+// sendMessageBatch 批量发送消息
 func sendMessageBatch(topic string, partition int, key string, messages []string, w *kafka.Writer, c context.Context) error {
 
 	//1.校验
