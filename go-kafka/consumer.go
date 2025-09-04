@@ -6,66 +6,77 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/segmentio/kafka-go"
 )
 
 // Consumer 消费者
 type Consumer struct {
-	r *kafka.Reader
-	c context.Context
+	id     int
+	ctx    context.Context
+	reader *kafka.Reader
 }
 
 // NewConsumer 创建消费者
-func NewConsumer(brokers []string, group string, topic string, c context.Context) *Consumer {
-	return &Consumer{
-		r: getConsumer(brokers, group, topic),
-		c: c,
+func NewConsumer(id int, context context.Context, brokers []string, group string, topic string) *Consumer {
+
+	//1.创建消费者
+	consumer := &Consumer{
+		id:     id,
+		ctx:    context,
+		reader: getConsumer(strconv.Itoa(id), brokers, group, topic),
+	}
+
+	//2.打印日志
+	log.Printf("%s created success", consumer.GetTitle())
+
+	//3.返回
+	return consumer
+}
+
+// GetTitle 获取消费者标题
+func (c *Consumer) GetTitle() string {
+	return fmt.Sprintf("consumer-%s-%v", c.reader.Config().GroupID, c.id)
+}
+
+// Close 关闭消费者
+func (c *Consumer) Close() {
+	err := c.reader.Close()
+	if err != nil {
+		log.Fatalf("%s closed fail:%s", c.GetTitle(), err)
+	} else {
+		log.Printf("%s closed success", c.GetTitle())
 	}
 }
 
 // ConsumerMessage 消费消息
 func (c *Consumer) ConsumerMessage() error {
-	for {
 
-		//1.读取消息
-		m, err := c.r.FetchMessage(c.c)
-		if err != nil {
-			return err
-		}
-
-		//2.反序列化,获取消息
-		key := string(m.Key)
-		value := string(m.Value)
-
-		//3.处理消息
-		fmt.Printf("The Group Consumer:"+c.r.Config().GroupID+" Received message: key=%s, value=%s\n", key, value)
-
-		//4.手动提交偏移量
-		if err := c.r.CommitMessages(c.c, m); err != nil {
-			return err
-		}
-
-		//5.如果为退出监听标识，退出循环
-		if key == "exit" {
-			break
-		}
+	//1.读取消息
+	m, err := c.reader.FetchMessage(c.ctx)
+	if err != nil {
+		return err
 	}
 
-	//6.默认返回
+	//2.反序列化,获取消息
+	key := string(m.Key)
+	value := string(m.Value)
+
+	//3.处理消息
+	log.Printf("%s receive message=>[key=%s, value=%s]", c.GetTitle(), key, value)
+
+	//4.手动提交偏移量
+	if err := c.reader.CommitMessages(c.ctx, m); err != nil {
+		return err
+	}
+
+	//5.默认返回
 	return nil
 }
 
-// Close 关闭消费者
-func (c *Consumer) Close() {
-	err := c.r.Close()
-	if err != nil {
-		log.Fatalf("failed to close consumer: %s", err)
-	}
-}
-
 // getConsumer 获取消费者
-func getConsumer(brokers []string, group string, topic string) *kafka.Reader {
+func getConsumer(id string, brokers []string, group string, topic string) *kafka.Reader {
 	return kafka.NewReader(kafka.ReaderConfig{
 
 		//常规配置
@@ -88,7 +99,7 @@ func getConsumer(brokers []string, group string, topic string) *kafka.Reader {
 		CommitInterval: 0, // 手动提交 offset（关闭自动提交）
 
 		//日志配置
-		Logger:      log.New(os.Stdout, "kafka-consumer-"+group+": ", log.LstdFlags),
-		ErrorLogger: log.New(os.Stderr, "kafka-consumer-"+group+"-error: ", log.LstdFlags),
+		//Logger: log.New(os.Stdout, "consumer-"+group+"-"+id+": ", log.LstdFlags),
+		ErrorLogger: log.New(os.Stderr, "consumer-"+group+"-"+id+" error: ", log.LstdFlags),
 	})
 }
