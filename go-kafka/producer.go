@@ -19,17 +19,27 @@ type Producer struct {
 
 // NewProducer 创建生产者
 func NewProducer(brokers []string, c context.Context) *Producer {
-	return &Producer{
+
+	//1.创建生产者
+	producer := &Producer{
 		w: getWriter(brokers),
 		c: c,
 	}
+
+	//2.日志打印
+	log.Printf("producer create success")
+
+	//3.返回
+	return producer
 }
 
 // Close 关闭生产者
 func (p *Producer) Close() {
 	err := p.w.Close()
 	if err != nil {
-		log.Fatalf("failed to close producer: %s", err)
+		log.Fatalf("producer closed failed:%s", err)
+	} else {
+		log.Println("producer closed success")
 	}
 }
 
@@ -96,8 +106,8 @@ func getWriter(brokers []string) *kafka.Writer {
 		},
 
 		//日志配置
-		Logger:      log.New(os.Stdout, "kafka-producer: ", log.LstdFlags),
-		ErrorLogger: log.New(os.Stderr, "kafka-producer-error: ", log.LstdFlags),
+		//Logger:      log.New(os.Stdout, "producer: ", log.LstdFlags),
+		ErrorLogger: log.New(os.Stderr, "producer error: ", log.LstdFlags),
 
 		//消息分发路由策略，包括以下5种
 		// 1. LeastBytes:
@@ -143,6 +153,7 @@ func sendMessage(topic string, partition int, key string, message string, w *kaf
 	if err := w.WriteMessages(c, msg); err != nil {
 		return err
 	} else {
+		log.Printf("producer send message=>[key=%s, value=%s] success", key, message)
 		return nil
 	}
 }
@@ -172,6 +183,7 @@ func sendMessageBatch(topic string, partition int, key string, messages []string
 	if err := w.WriteMessages(c, msgs...); err != nil {
 		return err
 	} else {
+		log.Printf("producer send message=>[key=%s, value=%s] success", key, messages)
 		return nil
 	}
 }
