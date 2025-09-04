@@ -27,7 +27,7 @@ func NewProducer(brokers []string, c context.Context) *Producer {
 	}
 
 	//2.日志打印
-	log.Printf("producer create success")
+	log.Printf("producer created success")
 
 	//3.返回
 	return producer
@@ -153,7 +153,7 @@ func sendMessage(topic string, partition int, key string, message string, w *kaf
 	if err := w.WriteMessages(c, msg); err != nil {
 		return err
 	} else {
-		log.Printf("producer send message=>[key=%s, value=%s] success", key, message)
+		log.Printf("producer send message=>[topic=%s partition=%s key=%s, value=%s] success", topic, partition, key, message)
 		return nil
 	}
 }
@@ -183,7 +183,7 @@ func sendMessageBatch(topic string, partition int, key string, messages []string
 	if err := w.WriteMessages(c, msgs...); err != nil {
 		return err
 	} else {
-		log.Printf("producer send message=>[key=%s, value=%s] success", key, messages)
+		log.Printf("producer send message=>[topic=%s partition=%s key=%s, value=%s] success", topic, partition, key, messages)
 		return nil
 	}
 }
