@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/segmentio/kafka-go"
+	"github.com/sirupsen/logrus"
 )
 
 // Consumer 消费者
@@ -29,7 +30,7 @@ func NewConsumer(id int, context context.Context, brokers []string, group string
 	}
 
 	//2.打印日志
-	log.Printf("%s created success", consumer.GetTitle())
+	logrus.Infof("%s created success", consumer.GetTitle())
 
 	//3.返回
 	return consumer
@@ -41,12 +42,13 @@ func (c *Consumer) GetTitle() string {
 }
 
 // Close 关闭消费者
-func (c *Consumer) Close() {
+func (c *Consumer) Close() error {
 	err := c.reader.Close()
 	if err != nil {
-		log.Fatalf("%s closed fail:%s", c.GetTitle(), err)
+		return err
 	} else {
-		log.Printf("%s closed success", c.GetTitle())
+		logrus.Infof("%s closed success", c.GetTitle())
+		return nil
 	}
 }
 
@@ -57,7 +59,7 @@ func (c *Consumer) StartConsume() {
 		//1.监听上下文是否被取消，如果被取消则优雅退出
 		select {
 		case <-c.ctx.Done():
-			log.Printf("%s is closing", c.GetTitle())
+			logrus.Infof("%s is closing", c.GetTitle())
 			return
 		default:
 		}
@@ -67,12 +69,12 @@ func (c *Consumer) StartConsume() {
 
 			//3.检测是否是因为上下文取消导致的异常，如果是，则优雅退出
 			if c.ctx.Err() != nil {
-				log.Printf("%s is closing", c.GetTitle())
+				logrus.Infof("%s is closing", c.GetTitle())
 				return
 			}
 
 			//4.如果不是主动退出导致的异常，则打印错误信息
-			log.Printf("%s consume fail:%s", c.GetTitle(), err)
+			logrus.Warnf("%s consume fail:%s", c.GetTitle(), err)
 		}
 	}
 }
@@ -91,7 +93,7 @@ func (c *Consumer) consumeMessage() error {
 	value := string(m.Value)
 
 	//3.处理消息
-	log.Printf("%s receive message=>[key=%s, value=%s]", c.GetTitle(), key, value)
+	logrus.Infof("%s receive message=>[key=%s, value=%s]", c.GetTitle(), key, value)
 
 	//4.手动提交偏移量
 	if err := c.reader.CommitMessages(c.ctx, m); err != nil {
