@@ -14,7 +14,6 @@ import (
 
 // 类似于CountDownLatch 用于监听一组goroutine
 var wg sync.WaitGroup
-var goroutineNum = 0
 
 func main() {
 
@@ -31,25 +30,25 @@ func main() {
 	createConsumer(2, "group1", ctx)
 	createConsumer(3, "group1", ctx)
 
-	//4.设置监听数量
-	wg.Add(goroutineNum)
-
-	//5.等待关闭信号
+	//4.等待关闭信号
 	<-c
 	log.Println("receive close sign. try to closing consumers")
 
-	//6.收到关闭信号后，取消context，通知goroutine停止
+	//5.收到关闭信号后，取消context，通知goroutine停止
 	cancel()
 
-	//7.等待goroutine结束
+	//6.等待goroutine结束
 	wg.Wait()
+
+	//7.打印最终日志
+	log.Println("all consumers closed")
 }
 
 // createConsumer 创建消费者消费消息
 func createConsumer(id int, group string, ctx context.Context) {
 
-	//1.消费者数量++
-	goroutineNum++
+	//1.计数器+1
+	wg.Add(1)
 
 	//2.创建协程，执行消费逻辑
 	go func() {
@@ -62,28 +61,6 @@ func createConsumer(id int, group string, ctx context.Context) {
 		defer consumer.Close()
 
 		//5.在goroutine中处理消费
-		for {
-
-			//6.监听上下文是否被取消，如果被取消则优雅退出
-			select {
-			case <-ctx.Done():
-				log.Printf("%s is closing", consumer.GetTitle())
-				return
-			default:
-			}
-
-			//7.未取消则继续消费
-			if err := consumer.ConsumerMessage(); err != nil {
-
-				//8.检测是否是因为上下文取消导致的异常，如果是，则优雅退出
-				if ctx.Err() != nil {
-					log.Printf("%s is closing", consumer.GetTitle())
-					return
-				}
-
-				//9.如果不是主动退出导致的异常，则打印错误信息
-				log.Printf("%s consume fail:%s", consumer.GetTitle(), err)
-			}
-		}
+		consumer.StartConsume()
 	}()
 }

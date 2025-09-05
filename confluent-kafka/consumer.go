@@ -58,7 +58,7 @@ func (c *ConsumerClient) Close() {
 	}
 }
 
-// StartConsume 开始消费消息
+// StartConsume 启动消费者
 func (c *ConsumerClient) StartConsume() {
 	for {
 

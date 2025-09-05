@@ -50,8 +50,35 @@ func (c *Consumer) Close() {
 	}
 }
 
-// ConsumerMessage 消费消息
-func (c *Consumer) ConsumerMessage() error {
+// StartConsume 启动消费者
+func (c *Consumer) StartConsume() {
+	for {
+
+		//1.监听上下文是否被取消，如果被取消则优雅退出
+		select {
+		case <-c.ctx.Done():
+			log.Printf("%s is closing", c.GetTitle())
+			return
+		default:
+		}
+
+		//2.未取消则继续消费
+		if err := c.consumeMessage(); err != nil {
+
+			//3.检测是否是因为上下文取消导致的异常，如果是，则优雅退出
+			if c.ctx.Err() != nil {
+				log.Printf("%s is closing", c.GetTitle())
+				return
+			}
+
+			//4.如果不是主动退出导致的异常，则打印错误信息
+			log.Printf("%s consume fail:%s", c.GetTitle(), err)
+		}
+	}
+}
+
+// consumeMessage 消费消息
+func (c *Consumer) consumeMessage() error {
 
 	//1.读取消息
 	m, err := c.reader.FetchMessage(c.ctx)
