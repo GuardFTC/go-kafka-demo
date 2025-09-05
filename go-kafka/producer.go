@@ -4,11 +4,10 @@ package go_kafka
 import (
 	"context"
 	"errors"
-	"log"
-	"os"
 	"time"
 
 	"github.com/segmentio/kafka-go"
+	"github.com/sirupsen/logrus"
 )
 
 // Producer 生产者
@@ -18,7 +17,7 @@ type Producer struct {
 }
 
 // NewProducer 创建生产者
-func NewProducer(brokers []string, c context.Context) *Producer {
+func NewProducer(brokers []string, c context.Context) (*Producer, error) {
 
 	//1.创建生产者
 	producer := &Producer{
@@ -27,19 +26,20 @@ func NewProducer(brokers []string, c context.Context) *Producer {
 	}
 
 	//2.日志打印
-	log.Printf("producer created success")
+	logrus.Info("producer created success")
 
 	//3.返回
-	return producer
+	return producer, nil
 }
 
 // Close 关闭生产者
-func (p *Producer) Close() {
+func (p *Producer) Close() error {
 	err := p.w.Close()
 	if err != nil {
-		log.Fatalf("producer closed failed:%s", err)
+		return err
 	} else {
-		log.Println("producer closed success")
+		logrus.Info("producer closed success")
+		return nil
 	}
 }
 
@@ -106,8 +106,8 @@ func getWriter(brokers []string) *kafka.Writer {
 		},
 
 		//日志配置
-		//Logger:      log.New(os.Stdout, "producer: ", log.LstdFlags),
-		ErrorLogger: log.New(os.Stderr, "producer error: ", log.LstdFlags),
+		//Logger:      kafka.LoggerFunc(logrus.Infof),
+		ErrorLogger: kafka.LoggerFunc(logrus.Errorf),
 
 		//消息分发路由策略，包括以下5种
 		// 1. LeastBytes:
@@ -152,10 +152,13 @@ func sendMessage(topic string, partition int, key string, message string, w *kaf
 	//3.发送消息
 	if err := w.WriteMessages(c, msg); err != nil {
 		return err
-	} else {
-		log.Printf("producer send message=>[topic=%s partition=%s key=%s, value=%s] success", topic, partition, key, message)
-		return nil
 	}
+
+	//4.打印日志
+	logrus.Infof("producer send message=>[topic=%s partition=%d key=%s] success", topic, partition, key)
+
+	//5.默认返回
+	return nil
 }
 
 // sendMessageBatch 批量发送消息
@@ -182,10 +185,13 @@ func sendMessageBatch(topic string, partition int, key string, messages []string
 	//6.批量发送消息
 	if err := w.WriteMessages(c, msgs...); err != nil {
 		return err
-	} else {
-		log.Printf("producer send message=>[topic=%s partition=%s key=%s, value=%s] success", topic, partition, key, messages)
-		return nil
 	}
+
+	//7.打印日志
+	logrus.Infof("producer sent %d messages=>[topic=%s partition=%d key=%s] success", len(msgs), topic, partition, key)
+
+	//8.默认返回
+	return nil
 }
 
 // getMessage 创建消息

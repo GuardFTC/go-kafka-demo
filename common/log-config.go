@@ -8,8 +8,9 @@ func InitLogConfig() {
 
 	//2.设置日志格式带颜色
 	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:   true,
-		FullTimestamp: true,
+		ForceColors:     true,
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
 	//3.设置日志级别，默认 Info 及以上输出

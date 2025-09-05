@@ -4,8 +4,6 @@ package go_kafka
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"strconv"
 
 	"github.com/segmentio/kafka-go"
@@ -129,6 +127,6 @@ func getConsumer(id string, brokers []string, group string, topic string) *kafka
 
 		//日志配置
 		//Logger: log.New(os.Stdout, "consumer-"+group+"-"+id+": ", log.LstdFlags),
-		ErrorLogger: log.New(os.Stderr, "consumer-"+group+"-"+id+" error: ", log.LstdFlags),
+		ErrorLogger: kafka.LoggerFunc(logrus.Errorf),
 	})
 }
