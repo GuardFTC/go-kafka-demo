@@ -2,11 +2,10 @@
 package confluent_kafka
 
 import (
-	"fmt"
-	"log"
 	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/sirupsen/logrus"
 )
 
 // ProducerClient 生产者客户端
@@ -15,12 +14,12 @@ type ProducerClient struct {
 }
 
 // NewProducer 创建生产者客户端
-func NewProducer(brokers []string) *ProducerClient {
+func NewProducer(brokers []string) (*ProducerClient, error) {
 
 	//1.创建生产者
 	p, err := getProducer(brokers)
 	if err != nil {
-		log.Fatalf("create producer error: %v", err)
+		return nil, err
 	}
 
 	//2.创建客户端
@@ -28,17 +27,72 @@ func NewProducer(brokers []string) *ProducerClient {
 		producer: p,
 	}
 
-	//3.打印日志
-	log.Printf("producer created success")
+	//3.启动一个goroutine来处理交付报告
+	go producerClient.handleDeliveryReports()
 
-	//4.返回
-	return producerClient
+	//4.打印日志
+	logrus.Info("producer created success")
+
+	//5.返回
+	return producerClient, nil
+}
+
+// handleDeliveryReports 在后台异步处理交付报告
+func (p *ProducerClient) handleDeliveryReports() {
+
+	//1.确保协程结束时，打印日志
+	defer logrus.Info("producer stop handle delivery reports")
+
+	//2.打印启动日志
+	logrus.Info("producer start handle delivery reports")
+
+	//3.获取事件
+	for e := range p.producer.Events() {
+
+		//4.校验事件类型
+		switch ev := e.(type) {
+
+		//5.如果是消息投递事件，则进行对应处理
+		case *kafka.Message:
+
+			//6.定义日志打印字段
+			fields := logrus.Fields{
+				"topic":     *ev.TopicPartition.Topic,
+				"partition": ev.TopicPartition.Partition,
+				"offset":    ev.TopicPartition.Offset,
+				"value":     string(ev.Value),
+			}
+
+			//7.如果key不为空，则打印key
+			if ev.Key != nil {
+				fields["key"] = string(ev.Key)
+			}
+
+			//8.如果发生错误，打印错误
+			if ev.TopicPartition.Error != nil {
+				fields["error"] = ev.TopicPartition.Error
+				logrus.WithFields(fields).Error("message delivery failed")
+			} else {
+				logrus.WithFields(fields).Info("message delivered success")
+			}
+		case kafka.Error:
+			logrus.Errorf("producer receive delivery reports error: %v", ev)
+		}
+	}
 }
 
 // Close 关闭生产者
 func (p *ProducerClient) Close() {
+
+	//1.在关闭前，等待最多10秒，以确保所有排队的消息都已发送
+	remaining := p.producer.Flush(10 * 1000)
+	if remaining > 0 {
+		logrus.Warnf("%d messages were not delivered", remaining)
+	}
+
+	//2.关闭生产者
 	p.producer.Close()
-	log.Printf("producer closed success")
+	logrus.Info("producer closed success")
 }
 
 // SendMassage 发送消息
@@ -138,58 +192,28 @@ func getProducer(brokers []string) (*kafka.Producer, error) {
 	})
 }
 
-// sendMessage 发送单条消息
+// sendMessage 发送单条消息(将消息写入缓冲区)
 func sendMessage(topic string, partition int32, key string, message string, p *kafka.Producer) error {
-
-	//1.创建消息发送事件通道
-	deliveryChan := make(chan kafka.Event)
-
-	//2.发送消息(将消息写入缓冲区，等待触发阈值后发送给Broker)，并传入通道
-	if err := p.Produce(createMessage(topic, partition, key, message), deliveryChan); err != nil {
-		return err
-	}
-
-	//3.阻塞，等待发送成功写入结果到通道
-	event := <-deliveryChan
-
-	//4.判定event类型
-	switch ev := event.(type) {
-	case *kafka.Message:
-
-		//5.如果不为空，返回异常
-		if ev.TopicPartition.Error != nil {
-			return fmt.Errorf("send message error: [%v]", ev.TopicPartition.Error)
-		}
-
-		//6.否则打印发送结果
-		log.Printf("producer send message=>[topic=%s partition=%v key=%s, value=%s] success", topic, partition, key, message)
-
-		//7.默认返回
-		return nil
-	default:
-		return fmt.Errorf("send message error. send result event unknow type:[%v]", ev)
-	}
+	return p.Produce(createMessage(topic, partition, key, message), nil)
 }
 
-// sendBatchMessage 批量发送消息
+// sendMessageBatch 批量发送消息(将消息写入缓冲区)
 func sendMessageBatch(topic string, partition int32, key string, messages []string, p *kafka.Producer) error {
 
-	//1.循环封装消息
+	//1.循环向缓冲区写入消息
 	for _, message := range messages {
 
-		//2.创建消息
-		msg := createMessage(topic, partition, key, message)
-
-		//3.发送消息(将消息写入缓冲区，等待触发阈值后发送给Broker)
-		if err := p.Produce(msg, nil); err != nil {
+		//2.如果发生异常，则返回错误
+		if err := p.Produce(createMessage(topic, partition, key, message), nil); err != nil {
+			logrus.Errorf("failed to produce message to local queue: %v", err)
 			return err
 		}
 	}
 
-	//4.打印日志
-	log.Printf("producer send message=>[topic=%s partition=%v key=%s, value=%s] success", topic, partition, key, messages)
+	//3.打印日志
+	logrus.Infof("queued %d messages for topic %s", len(messages), topic)
 
-	//5.默认返回
+	//4.默认返回
 	return nil
 }
 
