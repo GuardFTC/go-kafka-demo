@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"go-kafka-demo/constant"
 	go_kafka "go-kafka-demo/go-kafka"
 	"log"
 	"os"
@@ -10,12 +11,6 @@ import (
 	"sync"
 	"syscall"
 )
-
-// kafka服务地址
-var addr = []string{"127.0.0.1:9092"}
-
-// Kafka默认Topic
-var defaultTopic = "test-go-topic"
 
 // 类似于CountDownLatch 用于监听一组goroutine
 var wg sync.WaitGroup
@@ -63,7 +58,7 @@ func createConsumer(id int, group string, ctx context.Context) {
 		defer wg.Done()
 
 		//4.创建消费者
-		consumer := go_kafka.NewConsumer(id, ctx, addr, group, defaultTopic)
+		consumer := go_kafka.NewConsumer(id, ctx, constant.Addr, group, constant.DefaultTopic)
 		defer consumer.Close()
 
 		//5.在goroutine中处理消费
@@ -72,7 +67,7 @@ func createConsumer(id int, group string, ctx context.Context) {
 			//6.监听上下文是否被取消，如果被取消则优雅退出
 			select {
 			case <-ctx.Done():
-				log.Printf("%s closing", consumer.GetTitle())
+				log.Printf("%s is closing", consumer.GetTitle())
 				return
 			default:
 			}
@@ -82,7 +77,7 @@ func createConsumer(id int, group string, ctx context.Context) {
 
 				//8.检测是否是因为上下文取消导致的异常，如果是，则优雅退出
 				if ctx.Err() != nil {
-					log.Printf("%s closing", consumer.GetTitle())
+					log.Printf("%s is closing", consumer.GetTitle())
 					return
 				}
 
