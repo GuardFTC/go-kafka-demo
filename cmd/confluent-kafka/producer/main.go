@@ -2,15 +2,15 @@
 package main
 
 import (
+	"go-kafka-demo/common"
 	confluent_kafka "go-kafka-demo/confluent-kafka"
-	"go-kafka-demo/constant"
 	"log"
 )
 
 func main() {
 
 	//1.创建生产者
-	producer := confluent_kafka.NewProducer(constant.Addr)
+	producer := confluent_kafka.NewProducer(common.Addr)
 	defer producer.Close()
 
 	////2.发送消息不指定分区和key
@@ -39,7 +39,7 @@ func main() {
 	//}
 
 	//6.批量发送消息，指定key
-	if err := producer.SendMessagesWithKey(constant.DefaultTopic, "order123", []string{"test batch key msg1", "test batch key msg2"}); err != nil {
+	if err := producer.SendMessagesWithKey(common.DefaultTopic, "order123", []string{"test batch key msg1", "test batch key msg2"}); err != nil {
 		log.Fatalf("send message error: %v", err)
 	}
 }

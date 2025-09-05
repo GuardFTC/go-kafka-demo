@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"go-kafka-demo/constant"
+	"go-kafka-demo/common"
 	go_kafka "go-kafka-demo/go-kafka"
 	"log"
 )
@@ -14,7 +14,7 @@ var c = context.Background()
 func main() {
 
 	//1.创建生产者
-	producer := go_kafka.NewProducer(constant.Addr, c)
+	producer := go_kafka.NewProducer(common.Addr, c)
 	defer producer.Close()
 
 	////2.发送消息不指定分区和key
@@ -28,7 +28,7 @@ func main() {
 	//}
 
 	//3.发送消息指定Key
-	if err := producer.SendMessageWithKey(constant.DefaultTopic, "test key", "test key msg"); err != nil {
+	if err := producer.SendMessageWithKey(common.DefaultTopic, "test key", "test key msg"); err != nil {
 		log.Fatalf("send message error: %v", err)
 	}
 

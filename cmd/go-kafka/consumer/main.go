@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"go-kafka-demo/constant"
+	"go-kafka-demo/common"
 	go_kafka "go-kafka-demo/go-kafka"
 	"log"
 	"os"
@@ -57,7 +57,7 @@ func createConsumer(id int, group string, ctx context.Context) {
 		defer wg.Done()
 
 		//4.创建消费者
-		consumer := go_kafka.NewConsumer(id, ctx, constant.Addr, group, constant.DefaultTopic)
+		consumer := go_kafka.NewConsumer(id, ctx, common.Addr, group, common.DefaultTopic)
 		defer consumer.Close()
 
 		//5.在goroutine中处理消费

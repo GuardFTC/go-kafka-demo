@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/sirupsen/logrus"
 )
 
 // ConsumerClient 消费者客户端
@@ -21,12 +21,12 @@ type ConsumerClient struct {
 }
 
 // NewConsumerClient 创建消费者客户端
-func NewConsumerClient(id int, brokers []string, group string, topics []string, ctx context.Context) *ConsumerClient {
+func NewConsumerClient(id int, brokers []string, group string, topics []string, ctx context.Context) (*ConsumerClient, error) {
 
 	//1.获取消费者
 	consumer, err := getConsumer(brokers, group, topics)
 	if err != nil {
-		log.Fatalf("consumer-%s-%v create error: %v", group, id, err)
+		return nil, err
 	}
 
 	//2.创建消费者客户端
@@ -38,10 +38,10 @@ func NewConsumerClient(id int, brokers []string, group string, topics []string, 
 	}
 
 	//3.打印日志
-	log.Printf("%s create success", consumerClient.GetTitle())
+	logrus.Infof("%s create success", consumerClient.GetTitle())
 
 	//4.返回
-	return consumerClient
+	return consumerClient, nil
 }
 
 // GetTitle 获取消费者标题
@@ -50,11 +50,12 @@ func (c *ConsumerClient) GetTitle() string {
 }
 
 // Close 关闭消费者客户端
-func (c *ConsumerClient) Close() {
+func (c *ConsumerClient) Close() error {
 	if err := c.consumer.Close(); err != nil {
-		log.Fatalf("%s close error: %v", c.GetTitle(), err)
+		return err
 	} else {
-		log.Printf("%s close success", c.GetTitle())
+		logrus.Infof("%s close success", c.GetTitle())
+		return nil
 	}
 }
 
@@ -65,14 +66,14 @@ func (c *ConsumerClient) StartConsume() {
 		//1.监听上下文是否被取消，如果被取消则优雅退出
 		select {
 		case <-c.ctx.Done():
-			log.Printf("%s is closing", c.GetTitle())
+			logrus.Infof("%s is closing", c.GetTitle())
 			return
 		default:
 		}
 
 		//2.消费消息
 		if err := c.consumeMessage(); err != nil {
-			log.Printf("%s consume fail:%s", c.GetTitle(), err)
+			logrus.Warnf("%s consume fail:%s", c.GetTitle(), err)
 		}
 	}
 }
@@ -96,7 +97,7 @@ func (c *ConsumerClient) consumeMessage() error {
 	}
 
 	//4.处理消息
-	log.Printf("%s receive message=>[key=%s, value=%s]", c.GetTitle(), msg.Key, msg.Value)
+	logrus.Infof("%s receive message=>[key=%s, value=%s]", c.GetTitle(), msg.Key, msg.Value)
 
 	//5.手动提交偏移量
 	if _, err := c.consumer.CommitMessage(msg); err != nil {
