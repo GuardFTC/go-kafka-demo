@@ -3,6 +3,7 @@ package confluent_kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -71,14 +72,6 @@ func (c *ConsumerClient) StartConsume() {
 
 		//2.消费消息
 		if err := c.consumeMessage(); err != nil {
-
-			//3.检测是否是因为上下文取消导致的异常，如果是，则优雅退出
-			if c.ctx.Err() != nil {
-				log.Printf("%s is closing", c.GetTitle())
-				return
-			}
-
-			//4.如果不是主动退出导致的异常，则打印错误信息
 			log.Printf("%s consume fail:%s", c.GetTitle(), err)
 		}
 	}
@@ -94,7 +87,8 @@ func (c *ConsumerClient) consumeMessage() error {
 	if err != nil {
 
 		//3.处理超时错误（正常情况）
-		if err.(kafka.Error).Code() == kafka.ErrTimedOut {
+		var kafkaErr kafka.Error
+		if errors.As(err, &kafkaErr) && kafkaErr.Code() == kafka.ErrTimedOut {
 			return nil
 		} else {
 			return err
